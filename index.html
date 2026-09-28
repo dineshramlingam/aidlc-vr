@@ -43,7 +43,7 @@
 <body>
 <div id="stage"></div>
 <div class="title">
-  <h1 id="actTitle">Integration delivery, in VR</h1>
+  <h1 id="actTitle">MuleSoft AI-DLC</h1>
   <p id="actSub">Sample data. Trigger or tap Next to move between chapters.</p>
 </div>
 <div class="dock">
@@ -1231,9 +1231,9 @@
   ];
   const GLYPH = { complete:"complete", conditional:"conditional only" };
   // Two tiers, closer in and much larger: 8 stops per row, panels nearly touching.
-  const R = 2.0, PY = 1.5, STEP = 19 * Math.PI/180;
-  const ROW_Y = [1.92, 1.16], PER_ROW = 8;
-  const PANEL_W = 0.62, PANEL_H = 0.3875;
+  const R = 2.35, PY = 1.5, STEP = 17 * Math.PI/180;
+  const ROW_Y = [1.90, 1.22], PER_ROW = 8;
+  const PANEL_W = 0.56, PANEL_H = 0.35;
 
   function phaseTexture(item, lit) {
     const W=800,H=500, c=document.createElement("canvas"); c.width=W; c.height=H;
@@ -1265,19 +1265,21 @@
     const ctx=c.getContext("2d");
     ctx.fillStyle="rgba(14,26,43,.9)"; roundRect(ctx,4,4,W-8,H-8,26); ctx.fill();
     ctx.strokeStyle="rgba(159,179,200,.3)"; ctx.lineWidth=4; ctx.stroke();
-    ctx.fillStyle=C.ink; ctx.textBaseline="top"; ctx.font=`700 86px ${FONT}`;
-    ctx.fillText(PROJECT.name, 48, 40);
-    ctx.fillStyle=C.soft; ctx.font=`400 44px ${FONT}`; ctx.fillText(PROJECT.path, 48, 142);
+    ctx.fillStyle=hex(C.agent); ctx.textBaseline="top"; ctx.font=`700 46px ${FONT}`;
+    ctx.fillText("MuleSoft AI-DLC", 48, 30);
+    ctx.fillStyle=C.ink; ctx.font=`700 80px ${FONT}`;
+    ctx.fillText(PROJECT.name, 48, 88);
+    ctx.fillStyle=C.soft; ctx.font=`400 40px ${FONT}`; ctx.fillText(PROJECT.path, 48, 178);
     const stats=[["38/38","artifacts"],["2/2","hard gates"],["100%","verified"]];
     stats.forEach(([big,small],i)=>{
       const x=48+i*470;
-      ctx.fillStyle=hex(C.complete); ctx.font=`700 92px ${FONT}`; ctx.fillText(big,x,216);
-      ctx.fillStyle=C.soft; ctx.font=`400 38px ${FONT}`; ctx.fillText(small,x,318);
+      ctx.fillStyle=hex(C.complete); ctx.font=`700 88px ${FONT}`; ctx.fillText(big,x,236);
+      ctx.fillStyle=C.soft; ctx.font=`400 36px ${FONT}`; ctx.fillText(small,x,330);
     });
     const t=new THREE.CanvasTexture(c); t.minFilter=THREE.LinearFilter;
     const m=new THREE.Mesh(new THREE.PlaneGeometry(1.9,1.9*H/W),
       new THREE.MeshBasicMaterial({map:t,transparent:true}));
-    m.position.set(0,2.52,-R+.05); flowGroup.add(m);
+    m.position.set(0,2.95,-R+.05); flowGroup.add(m);
   })();
 
   const flowStops=[]; {
@@ -1296,7 +1298,7 @@
       if(item.kind==="phase"){
         const mesh=new THREE.Mesh(new THREE.PlaneGeometry(PANEL_W,PANEL_H),
           new THREE.MeshBasicMaterial({map:phaseTexture(item,false),transparent:true}));
-        mesh.position.copy(pos); mesh.lookAt(0,y,0); mesh.rotateY(Math.PI); flowGroup.add(mesh);
+        mesh.position.copy(pos); mesh.lookAt(0,y,0); flowGroup.add(mesh);
         // artifact chips: a chunky strip under the panel
         const n=Math.min(item.need||0,11), geo=new THREE.BoxGeometry(.036,.036,.018);
         for(let i=0;i<n;i++){
@@ -1314,8 +1316,8 @@
         const arch=new THREE.Mesh(new THREE.TorusGeometry(.26,.022,14,44,Math.PI),
           new THREE.MeshStandardMaterial({color:C.gate,emissive:C.gate,emissiveIntensity:.4}));
         arch.position.copy(pos); arch.lookAt(0,y,0); flowGroup.add(arch);
-        const l=sprite("HARD GATE",{size:42,color:hex(C.gate),scale:.0016});
-        l.position.copy(pos).add(new THREE.Vector3(0,.34,0)); flowGroup.add(l);
+        const l=sprite("HARD GATE",{size:38,color:hex(C.gate),scale:.0014});
+        l.position.copy(pos).add(new THREE.Vector3(0,-.34,0)); flowGroup.add(l);
         flowStops.push({item,mesh:arch,pos,angle:a,row});
       }
       si++;
@@ -1339,10 +1341,10 @@
       const row=Math.min(Math.floor(s.from/PER_ROW), ROW_Y.length-1);
       const rowCount=Math.min(PER_ROW, stops.length-row*PER_ROW);
       const f=s.from-row*PER_ROW, t2=Math.min(s.to-row*PER_ROW, rowCount-1);
-      const mid=-((rowCount-1)/2)*STEP + ((f+t2)/2)*STEP;
-      const y=ROW_Y[row]+PANEL_H/2+.14;
+      const mid=-((rowCount-1)/2)*STEP + f*STEP - STEP*.45;
+      const y=ROW_Y[row]+PANEL_H/2+.30;
       const p=new THREE.Vector3(Math.sin(mid)*R, y, -Math.cos(mid)*R);
-      const lab=sprite(label.toUpperCase(),{size:54,scale:.0019}); lab.position.copy(p); flowGroup.add(lab);
+      const lab=sprite(label.toUpperCase(),{size:44,color:hex(C.agent),scale:.0015}); lab.position.copy(p); flowGroup.add(lab);
       const span=Math.max(STEP,(t2-f)*STEP+STEP*.8);
       const band=new THREE.Mesh(new THREE.TorusGeometry(R,.006,6,80,span),
         new THREE.MeshBasicMaterial({color:C.agent,transparent:true,opacity:.35}));
@@ -1425,7 +1427,21 @@
     new THREE.MeshStandardMaterial({color:C.agent,emissive:C.agent,emissiveIntensity:.9}));
   world.add(agent);
   const agentGoal=new THREE.Vector3(0,2.3,-2.2);
-  const agentLabel=sprite("agent",{size:26,color:hex(C.agent),scale:.0011}); world.add(agentLabel);
+  const agentCanvas=document.createElement("canvas");
+  const agentTex=new THREE.CanvasTexture(agentCanvas);
+  const agentLabel=new THREE.Sprite(new THREE.SpriteMaterial({map:agentTex,transparent:true,depthWrite:false}));
+  world.add(agentLabel);
+  function setAgentLabel(text){
+    const size=40, pad=18, c=agentCanvas, ctx=c.getContext("2d");
+    ctx.font=`700 ${size}px ${FONT}`;
+    c.width=Math.ceil(ctx.measureText(text).width)+pad*2; c.height=size+pad*1.6;
+    ctx.font=`700 ${size}px ${FONT}`;
+    ctx.fillStyle="rgba(14,26,43,.75)"; roundRect(ctx,0,0,c.width,c.height,10); ctx.fill();
+    ctx.fillStyle=hex(C.agent); ctx.textBaseline="middle"; ctx.fillText(text,pad,c.height/2);
+    agentTex.image=c; agentTex.needsUpdate=true;
+    agentLabel.scale.set(c.width*.0013, c.height*.0013, 1);
+  }
+  setAgentLabel("AI-DLC framework");
 
   // ===== chapter machinery =====
   const titleEl=document.getElementById("actTitle"), subEl=document.getElementById("actSub");
@@ -1437,7 +1453,7 @@
 
   function showChapter(i){
     flowGroup.visible = i===0; netGroup.visible = i===1;
-    titleEl.textContent = i===0 ? "How it was built" : "How it runs";
+    titleEl.textContent = i===0 ? "MuleSoft AI-DLC — how it was built" : "MuleSoft AI-DLC — how it runs";
     subEl.textContent = i===0 ? `${PROJECT.name} · ${PROJECT.path}` : "Live API network · testing and triage agents";
   }
   function resetFlow(){ flowStops.forEach(p=>{
@@ -1450,7 +1466,7 @@
   }
 
   async function playFlow(id, live){
-    showChapter(0); resetFlow();
+    showChapter(0); resetFlow(); setAgentLabel("AI-DLC framework");
     agentGoal.set(0,PY+.55,-R);
     caption(`${PROJECT.name}, ${PROJECT.path}. Every phase here is read from the artifacts on disk.`);
     await sleep(3200); if(!live()) return;
@@ -1472,7 +1488,7 @@
   }
 
   async function playNet(id, live){
-    showChapter(1); resetNet();
+    showChapter(1); resetNet(); setAgentLabel("API testing agent");
     agentGoal.copy(NET_C).add(new THREE.Vector3(0,2.6,0));
     caption("Four applications live across DEV, TEST and QA. The testing agent watches for deployments.");
     await sleep(3200); if(!live()) return;
@@ -1496,6 +1512,8 @@
     ticket.position.copy(f.pos).add(new THREE.Vector3(0,.12,0)); ticketTarget=triagePos.clone(); netRoot.add(ticket);
     caption("The agent files the defect itself, with the evidence attached, and routes it to triage.");
     await sleep(2800); if(!live()) return;
+    setAgentLabel("Defect triage agent");
+    agentGoal.copy(NET_C).add(triagePos).add(new THREE.Vector3(0,.3,0));
     ping(NET_C.clone().add(triagePos), C.agent);
     caption("Triage agent: suspected cause is an expired connection credential. It also publishes what it could not see.");
     await sleep(4200); if(!live()) return;
