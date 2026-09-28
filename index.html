@@ -51,6 +51,7 @@
   <div class="actions">
     <button id="next">Next chapter</button>
     <button id="replay">Replay</button>
+    <button id="sound">Sound off</button>
     <button id="enterAR" class="primary" hidden>View in your room</button>
     <button id="enterVR" hidden>Enter VR</button>
   </div>
@@ -1194,7 +1195,7 @@
     const m=new THREE.Mesh(new THREE.PlaneGeometry(.42,.13), new THREE.MeshBasicMaterial({map:t,transparent:true}));
     m.position.set(0,.42,-1.5); world.add(m); return m;
   })();
-  const hint = sprite("pull the trigger, or look here and pull", {size:26,color:C.soft,scale:.0011});
+  const hint = sprite("trigger: next chapter  ·  grip: sound on/off", {size:26,color:C.soft,scale:.0011});
   hint.position.set(0,.30,-1.5); world.add(hint);
 
   // ===== effects =====
@@ -1205,6 +1206,64 @@
     m.position.copy(pos); if(face) m.lookAt(face); else m.rotation.x=Math.PI/2;
     world.add(m); effects.push({m,t:0});
   }
+
+  // ===== sound: synthesised cues, positioned in 3D; off until someone opts in =====
+  const sfx = (()=>{
+    let listener=null, ctx=null, noise=null, on=false, touched=false;
+    const btn=document.getElementById("sound");
+    function ensure(){
+      if(!listener){
+        listener=new THREE.AudioListener(); camera.add(listener); ctx=listener.context;
+        noise=ctx.createBuffer(1,ctx.sampleRate*.8,ctx.sampleRate);
+        const d=noise.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+      }
+      if(ctx.state==="suspended") ctx.resume();
+    }
+    function set(v,user){
+      if(user) touched=true;
+      on=v; if(v) ensure();
+      btn.textContent = v ? "Sound on" : "Sound off";
+    }
+    btn.addEventListener("click",()=>set(!on,true));
+    function out(pos){
+      const p=ctx.createPanner(); p.panningModel="HRTF"; p.distanceModel="inverse";
+      p.refDistance=1; p.rolloffFactor=.8;
+      if(p.positionX){ p.positionX.value=pos.x; p.positionY.value=pos.y; p.positionZ.value=pos.z; }
+      else p.setPosition(pos.x,pos.y,pos.z);
+      p.connect(listener.getInput()); setTimeout(()=>p.disconnect(),3000); return p;
+    }
+    function tone(dest,{f,f2,type="sine",at=0,dur=.3,vol=.2,attack=.008}){
+      const t=ctx.currentTime+at, o=ctx.createOscillator(), g=ctx.createGain();
+      o.type=type; o.frequency.setValueAtTime(f,t);
+      if(f2) o.frequency.exponentialRampToValueAtTime(f2,t+dur);
+      g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+attack);
+      g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+      o.connect(g).connect(dest); o.start(t); o.stop(t+dur+.05);
+    }
+    function hiss(dest,{at=0,dur=.6,vol=.12,from=400,to=2400}){
+      const t=ctx.currentTime+at, s=ctx.createBufferSource(), bp=ctx.createBiquadFilter(), g=ctx.createGain();
+      s.buffer=noise; bp.type="bandpass"; bp.Q.value=1.2;
+      bp.frequency.setValueAtTime(from,t); bp.frequency.exponentialRampToValueAtTime(to,t+dur);
+      g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+dur*.4); g.gain.linearRampToValueAtTime(0,t+dur);
+      s.connect(bp).connect(g).connect(dest); s.start(t); s.stop(t+dur);
+    }
+    const cue = fn => pos => { if(!on||!ctx||ctx.state!=="running") return; fn(out(pos)); };
+    return {
+      set, isOn:()=>on, touched:()=>touched, unlock:()=>{ if(on) ensure(); },
+      // chapter 1
+      chapter:  cue(d=>{ hiss(d,{dur:.7,vol:.05,from:200,to:900}); tone(d,{f:523,at:.15,dur:.9,vol:.07,attack:.1}); }),
+      complete: cue(d=>{ tone(d,{f:659,dur:.35,vol:.14}); tone(d,{f:988,at:.08,dur:.5,vol:.1}); }),
+      skip:     cue(d=>tone(d,{f:392,type:"triangle",dur:.22,vol:.06})),
+      gate:     cue(d=>[392,494,587,784].forEach((f,i)=>tone(d,{f,at:i*.07,dur:1.3,vol:.09}))),
+      resolve:  cue(d=>[523,659,784,1047].forEach((f,i)=>tone(d,{f,at:i*.09,dur:1.6,vol:.07}))),
+      // chapter 2
+      probe:    cue(d=>tone(d,{f:1400,f2:1800,dur:.09,vol:.07})),
+      pass:     cue(d=>{ tone(d,{f:880,dur:.18,vol:.1}); tone(d,{f:1320,at:.07,dur:.3,vol:.08}); }),
+      fail:     cue(d=>{ tone(d,{f:330,type:"triangle",dur:.28,vol:.2}); tone(d,{f:247,type:"triangle",at:.2,dur:.5,vol:.2}); }),
+      ticket:   cue(d=>hiss(d,{dur:.7,vol:.12})),
+      triage:   cue(d=>{ tone(d,{f:220,dur:1.4,vol:.11,attack:.25}); tone(d,{f:330,dur:1.4,vol:.07,attack:.25}); })
+    };
+  })();
 
   // ===================== CHAPTER 1 - AI-DLC flow map =====================
   const PROJECT = { name:"CUSTOMER-DATA-SYNC", path:"Path A, new development",
@@ -1467,7 +1526,7 @@
 
   async function playFlow(id, live){
     showChapter(0); resetFlow(); setAgentLabel("AI-DLC framework");
-    agentGoal.set(0,PY+.55,-R);
+    agentGoal.set(0,PY+.55,-R); sfx.chapter(new THREE.Vector3(0,PY,-R));
     caption(`${PROJECT.name}, ${PROJECT.path}. Every phase here is read from the artifacts on disk.`);
     await sleep(3200); if(!live()) return;
     for(const p of flowStops){
@@ -1476,11 +1535,13 @@
       if(p.item.kind==="phase"){ p.mesh.material.map=phaseTexture(p.item,true); p.mesh.material.needsUpdate=true; }
       else p.mesh.material.emissiveIntensity=1;
       ping(p.pos, C[p.item.status]||C.gate, new THREE.Vector3(0,PY,0));
+      (p.item.kind==="gate" ? sfx.gate : p.item.status==="conditional" ? sfx.skip : sfx.complete)(p.pos);
       if(p.item.kind==="gate"){ caption(`${p.item.name}: passed.`); await sleep(1900); }
       else if(p.item.status==="conditional"){ caption(`${p.item.name}: not required on this path.`); await sleep(1100); }
       else { caption(`${p.item.name}: ${p.item.counts}.`); await sleep(1250); }
       if(!live()) return;
     }
+    sfx.resolve(new THREE.Vector3(0,2.95,-R));
     caption(`Verified ${PROJECT.verified} across ${PROJECT.phases} phases. ${PROJECT.artifacts} artifacts, gates ${PROJECT.gates}, code review ${PROJECT.review}.`);
     await sleep(4200); if(!live()) return;
     caption("The built APIs now go live. Next chapter: the running network.");
@@ -1489,7 +1550,7 @@
 
   async function playNet(id, live){
     showChapter(1); resetNet(); setAgentLabel("API testing agent");
-    agentGoal.copy(NET_C).add(new THREE.Vector3(0,2.6,0));
+    agentGoal.copy(NET_C).add(new THREE.Vector3(0,2.6,0)); sfx.chapter(NET_C.clone().add(new THREE.Vector3(0,1.5,0)));
     caption("Four applications live across DEV, TEST and QA. The testing agent watches for deployments.");
     await sleep(3200); if(!live()) return;
     for(const [name,count] of TESTS){
@@ -1497,24 +1558,25 @@
       agentGoal.copy(NET_C).add(n.pos).add(new THREE.Vector3(0,.16,0));
       caption(`Running ${count} contract tests on ${name}.`);
       await sleep(1150); if(!live()) return;
-      ping(NET_C.clone().add(n.pos), C.agent);
+      ping(NET_C.clone().add(n.pos), C.agent); sfx.probe(NET_C.clone().add(n.pos));
       await sleep(800); if(!live()) return;
       if(name===FAILED) break;
-      setNode(n,"pass"); caption(`${name}: ${count} of ${count} passed.`);
+      setNode(n,"pass"); sfx.pass(NET_C.clone().add(n.pos)); caption(`${name}: ${count} of ${count} passed.`);
       await sleep(700); if(!live()) return;
     }
-    const f=nodes[FAILED]; setNode(f,"fail"); ping(NET_C.clone().add(f.pos), C.fail);
+    const f=nodes[FAILED]; setNode(f,"fail"); ping(NET_C.clone().add(f.pos), C.fail); sfx.fail(NET_C.clone().add(f.pos));
     const bad=f.links.find(l=>l.b.name===CULPRIT);
     if(bad){ bad.mat.color.setHex(C.fail); bad.mat.opacity=.95; bad.pulse.material.color.setHex(C.fail); }
     caption(`${FAILED}: 3 of 42 tests failed. Calls to ${CULPRIT} return 502.`);
     await sleep(2800); if(!live()) return;
     ticket=sprite("DEF-1042  work-order-prc",{size:30,weight:700,color:"#13243A",bg:"#F2C14E",scale:.0013});
     ticket.position.copy(f.pos).add(new THREE.Vector3(0,.12,0)); ticketTarget=triagePos.clone(); netRoot.add(ticket);
+    sfx.ticket(NET_C.clone().add(f.pos).lerp(NET_C.clone().add(triagePos),.5));
     caption("The agent files the defect itself, with the evidence attached, and routes it to triage.");
     await sleep(2800); if(!live()) return;
     setAgentLabel("Defect triage agent");
     agentGoal.copy(NET_C).add(triagePos).add(new THREE.Vector3(0,.3,0));
-    ping(NET_C.clone().add(triagePos), C.agent);
+    ping(NET_C.clone().add(triagePos), C.agent); sfx.triage(NET_C.clone().add(triagePos));
     caption("Triage agent: suspected cause is an expired connection credential. It also publishes what it could not see.");
     await sleep(4200); if(!live()) return;
     caption("Every finding cited, every verdict gated, every decision still a person's.");
@@ -1531,8 +1593,8 @@
   }
   function advance(){ chapter = chapter===0?1:0; story(chapter); }
 
-  document.getElementById("next").addEventListener("click", advance);
-  document.getElementById("replay").addEventListener("click", ()=>story(chapter));
+  document.getElementById("next").addEventListener("click", ()=>{ sfx.unlock(); advance(); });
+  document.getElementById("replay").addEventListener("click", ()=>{ sfx.unlock(); story(chapter); });
 
   // ===== XR =====
   const btnAR=document.getElementById("enterAR"), btnVR=document.getElementById("enterVR");
@@ -1550,6 +1612,8 @@
   [0,1].forEach(i=>{
     const c=renderer.xr.getController(i);
     c.addEventListener("select", onSelect);
+    c.addEventListener("squeeze", ()=>{ sfx.set(!sfx.isOn(),true);
+      if(sfx.isOn()) setTimeout(()=>sfx.pass(new THREE.Vector3(0,1.5,-1.2)),150); });
     scene.add(c);
   });
   async function startXR(mode){
@@ -1571,9 +1635,12 @@
       navigator.xr.isSessionSupported("immersive-vr").catch(()=>false)]);
     btnAR.hidden=!ar; btnVR.hidden=!vr;
     if(!ar&&!vr) note.textContent="Open on a Quest to step inside.";
+    else note.textContent="Sound turns on when you enter; grip button toggles it in the headset.";
   } else note.textContent="Open on a Quest to step inside.";
-  btnAR.addEventListener("click",()=>startXR("immersive-ar"));
-  btnVR.addEventListener("click",()=>startXR("immersive-vr"));
+  // entering the headset turns sound on, unless someone already chose
+  const enter=mode=>{ if(!session && !sfx.touched()) sfx.set(true); startXR(mode); };
+  btnAR.addEventListener("click",()=>enter("immersive-ar"));
+  btnVR.addEventListener("click",()=>enter("immersive-vr"));
 
   // ===== loop =====
   const clock=new THREE.Clock();
