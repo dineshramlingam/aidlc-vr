@@ -1473,6 +1473,9 @@
   const tl=sprite("Defect triage",{size:30,color:hex(C.agent),scale:.0013});
   tl.position.copy(triagePos).add(new THREE.Vector3(0,.26,0)); netRoot.add(tl);
   let ticket=null, ticketTarget=null;
+  // in-world platform tag: the HTML title isn't visible inside the headset
+  const platformTag=sprite("Amazon Bedrock AgentCore",{size:46,color:hex(C.agent),bg:"rgba(14,26,43,.8)",scale:.0017});
+  platformTag.position.set(0,2.42,0); netRoot.add(platformTag);
 
   function setNode(n,state){
     n.state=state;
@@ -1512,8 +1515,8 @@
 
   function showChapter(i){
     flowGroup.visible = i===0; netGroup.visible = i===1;
-    titleEl.textContent = i===0 ? "MuleSoft AI-DLC — how it was built" : "MuleSoft AI-DLC — how it runs";
-    subEl.textContent = i===0 ? `${PROJECT.name} · ${PROJECT.path}` : "Live API network · testing and triage agents";
+    titleEl.textContent = i===0 ? "MuleSoft AI-DLC — how it was built" : "Amazon Bedrock AgentCore — how it runs";
+    subEl.textContent = i===0 ? `${PROJECT.name} · ${PROJECT.path}` : "Live API network · testing and triage agents on AgentCore";
   }
   function resetFlow(){ flowStops.forEach(p=>{
     if(p.item.kind==="phase"){ p.mesh.material.map=phaseTexture(p.item,false); p.mesh.material.needsUpdate=true; }
