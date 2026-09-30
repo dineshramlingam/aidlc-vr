@@ -1271,7 +1271,7 @@
     const m=new THREE.Mesh(new THREE.PlaneGeometry(.42,.13), new THREE.MeshBasicMaterial({map:t,transparent:true}));
     m.position.set(0,.42,-1.5); world.add(m); return m;
   })();
-  const hint = sprite("trigger: next chapter  ·  grip: sound on/off", {size:28,color:C.soft,scale:.0011});
+  const hint = sprite("trigger: next chapter  ·  grip: sound on/off  ·  B / Y: exit", {size:28,color:C.soft,scale:.0011});
   hint.position.set(0,.30,-1.5); world.add(hint);
 
   // ===== effects =====
@@ -1736,7 +1736,7 @@
       navigator.xr.isSessionSupported("immersive-vr").catch(()=>false)]);
     btnAR.hidden=!ar; btnVR.hidden=!vr;
     if(!ar&&!vr) note.textContent="Open on a Quest to step inside.";
-    else note.textContent="Sound turns on when you enter; grip button toggles it in the headset.";
+    else note.textContent="Sound turns on when you enter. In the headset: grip toggles sound, B or Y exits.";
   } else note.textContent="Open on a Quest to step inside.";
   // entering the headset turns sound on, unless someone already chose
   const enter=mode=>{ if(!session && !sfx.touched()) sfx.set(true); startXR(mode); };
@@ -1761,6 +1761,11 @@
     nextPlate.material.opacity=.75+.25*Math.sin(t*2);
     // in-world caption and Next plate are for the headset; on a flat screen the HTML dock covers them
     capPlate.visible = nextPlate.visible = hint.visible = renderer.xr.isPresenting;
+    // B or Y (xr-standard button 5) leaves the headset view
+    if(session) for(const src of session.inputSources){
+      const b=src.gamepad && src.gamepad.buttons[5];
+      if(b && b.pressed){ const s=session; session=null; s.end().catch(()=>{}); break; }   // end once, not every frame
+    }
     for(let i=effects.length-1;i>=0;i--){
       const e=effects[i]; e.t+=dt; const s=1+e.t*2.4; e.m.scale.set(s,s,s);
       e.m.material.opacity=Math.max(0,.9-e.t*.9);
