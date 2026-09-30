@@ -1759,6 +1759,8 @@
     agentLabel.position.copy(agent.position).add(new THREE.Vector3(0,.1,0));
     agentGlow.position.copy(agent.position);
     nextPlate.material.opacity=.75+.25*Math.sin(t*2);
+    // in-world caption and Next plate are for the headset; on a flat screen the HTML dock covers them
+    capPlate.visible = nextPlate.visible = hint.visible = renderer.xr.isPresenting;
     for(let i=effects.length-1;i>=0;i--){
       const e=effects[i]; e.t+=dt; const s=1+e.t*2.4; e.m.scale.set(s,s,s);
       e.m.material.opacity=Math.max(0,.9-e.t*.9);
